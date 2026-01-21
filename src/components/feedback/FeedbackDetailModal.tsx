@@ -13,7 +13,9 @@ import { Badge } from '../ui/badge'
 import { Textarea } from '../ui/textarea'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../ui/select'
 import { Separator } from '../ui/separator'
-import { Clock, User, FileText, MessageSquare } from 'lucide-react'
+import { Label } from '../ui/label'
+import { Clock, User, FileText, MessageSquare, Upload } from 'lucide-react'
+import { toast } from 'sonner'
 
 function formatDistanceToNow(date: Date, options?: { addSuffix?: boolean }): string {
   const seconds = Math.floor((Date.now() - date.getTime()) / 1000)
@@ -55,6 +57,7 @@ export function FeedbackDetailModal({ feedback, open, onClose }: FeedbackDetailM
   const { updateFeedbackStatus, addInternalNote } = useFeedback()
   const [newNote, setNewNote] = useState('')
   const [newStatus, setNewStatus] = useState<FeedbackStatus | ''>('')
+  const [resolutionSummary, setResolutionSummary] = useState('')
 
   if (!feedback) return null
 
@@ -62,17 +65,25 @@ export function FeedbackDetailModal({ feedback, open, onClose }: FeedbackDetailM
   const canAddNotes = user && user.role !== 'student'
   const canViewNotes = user && user.role !== 'student'
   const isStudent = user?.role === 'student'
+  const isResolvingStatus = newStatus === 'resolved'
 
   const handleStatusUpdate = () => {
     if (newStatus) {
+      if (newStatus === 'resolved' && !resolutionSummary.trim()) {
+        toast.error('Please provide a resolution summary before marking as resolved.')
+        return
+      }
       updateFeedbackStatus(feedback.id, newStatus)
+      toast.success(`Status updated to ${newStatus.replace('_', ' ')}`)
       setNewStatus('')
+      setResolutionSummary('')
     }
   }
 
   const handleAddNote = () => {
     if (newNote.trim() && user) {
       addInternalNote(feedback.id, newNote, user.name)
+      toast.success('Internal note added')
       setNewNote('')
     }
   }
@@ -193,6 +204,30 @@ export function FeedbackDetailModal({ feedback, open, onClose }: FeedbackDetailM
                     Update
                   </Button>
                 </div>
+                
+                {/* Resolution Summary - Only shows when resolving */}
+                {isResolvingStatus && (
+                  <div className="space-y-2 p-4 bg-green-50 dark:bg-green-900/20 rounded-lg border border-green-200 dark:border-green-800">
+                    <Label htmlFor="resolution-summary" className="text-green-900 dark:text-green-100 font-medium">
+                      Resolution Summary *
+                    </Label>
+                    <Textarea
+                      id="resolution-summary"
+                      placeholder="Describe how this issue was resolved..."
+                      value={resolutionSummary}
+                      onChange={(e) => setResolutionSummary(e.target.value)}
+                      rows={4}
+                      className="bg-white dark:bg-gray-800"
+                    />
+                    <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                      <Upload className="w-4 h-4" />
+                      <span>Optional: Upload resolution photo (placeholder)</span>
+                      <Button variant="outline" size="sm" className="ml-auto">
+                        Choose File
+                      </Button>
+                    </div>
+                  </div>
+                )}
               </div>
             </>
           )}

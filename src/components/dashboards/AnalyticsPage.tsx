@@ -5,6 +5,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../ui
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '../ui/tabs'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../ui/select'
 import { Button } from '../ui/button'
+import { toast } from 'sonner'
 import {
   BarChart,
   Bar,
@@ -156,6 +157,10 @@ export function AnalyticsPage({ onNavigate }: AnalyticsPageProps) {
     a.click()
     document.body.removeChild(a)
     URL.revokeObjectURL(url)
+    
+    // Show success toast
+    toast.success('Report downloaded successfully!')
+    console.log('Exporting CSV...', reportData)
   }
 
   return (

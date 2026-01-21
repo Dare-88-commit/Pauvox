@@ -322,7 +322,6 @@ export function StudentDashboard({
         feedback={selectedFeedback}
         open={!!selectedFeedback}
         onClose={() => setSelectedFeedback(null)}
-        showInternalNotes={false} // Prevents staff-only data leakage
       />
     </Layout>
   );

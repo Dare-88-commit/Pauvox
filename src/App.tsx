@@ -23,6 +23,7 @@ import { ProfilePage } from './components/ProfilePage'
 import { HelpPage } from './components/HelpPage'
 import { NotificationCenter } from './components/NotificationCenter'
 import { Toaster } from './components/ui/sonner'
+import { toast } from 'sonner'
 
 type Page = 
   | 'home' 
@@ -59,6 +60,16 @@ function AppContent() {
   }, [isAuthenticated, user, currentPage])
 
   const handleNavigate = (page: Page) => {
+    // Role-based route guarding
+    if (user?.role === 'student') {
+      const staffOnlyPages: Page[] = ['staff-inbox', 'analytics']
+      if (staffOnlyPages.includes(page)) {
+        toast.error('Access denied. This page is only available to staff members.')
+        setCurrentPage('dashboard')
+        return
+      }
+    }
+    
     setCurrentPage(page)
   }
 
@@ -109,8 +120,20 @@ function AppContent() {
         case 'my-feedback':
           return renderDashboard()
         case 'staff-inbox':
+          // Route guard: prevent students from accessing staff inbox
+          if (user?.role === 'student') {
+            toast.error('Access denied. Redirecting to dashboard.')
+            setTimeout(() => setCurrentPage('dashboard'), 100)
+            return renderDashboard()
+          }
           return <StaffInbox onNavigate={handleNavigate} />
         case 'analytics':
+          // Route guard: prevent students from accessing analytics
+          if (user?.role === 'student') {
+            toast.error('Access denied. Redirecting to dashboard.')
+            setTimeout(() => setCurrentPage('dashboard'), 100)
+            return renderDashboard()
+          }
           return <AnalyticsPage onNavigate={handleNavigate} />
         case 'about':
           return <AboutPage onNavigate={handleNavigate} />

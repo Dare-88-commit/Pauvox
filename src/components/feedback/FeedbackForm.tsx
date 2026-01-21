@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { useFeedback, FeedbackType } from '../../contexts/FeedbackContext'
+import { useFeedback, FeedbackType, FeedbackPriority } from '../../contexts/FeedbackContext'
 import { useAuth } from '../../contexts/AuthContext'
 import { Button } from '../ui/button'
 import { Input } from '../ui/input'
@@ -10,7 +10,8 @@ import { Alert, AlertDescription } from '../ui/alert'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../ui/select'
 import { Switch } from '../ui/switch'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '../ui/tabs'
-import { ArrowLeft, AlertTriangle, CheckCircle2, Loader2 } from 'lucide-react'
+import { ArrowLeft, AlertTriangle, CheckCircle2, Loader2, Upload, X, Lock } from 'lucide-react'
+import { toast } from 'sonner'
 
 interface FeedbackFormProps {
   onNavigate: (page: string) => void
@@ -53,6 +54,9 @@ export function FeedbackForm({ onNavigate }: FeedbackFormProps) {
   const [success, setSuccess] = useState(false)
   const [loading, setLoading] = useState(false)
   const [profanityWarning, setProfanityWarning] = useState(false)
+  const [detectedPriority, setDetectedPriority] = useState<FeedbackPriority>('medium')
+  const [priorityLocked, setPriorityLocked] = useState(false)
+  const [selectedFiles, setSelectedFiles] = useState<File[]>([])
 
   const departments = [
     'Computer Science',
@@ -67,10 +71,61 @@ export function FeedbackForm({ onNavigate }: FeedbackFormProps) {
     'Other'
   ]
 
+  const validateContent = (text: string): { containsProfanity: boolean; isEmergency: boolean } => {
+    const containsProfanity = checkProfanity(text)
+    
+    // Emergency keywords detection
+    const emergencyKeywords = ['fire', 'danger', 'emergency', 'urgent', 'flood', 'threat', 'assault', 'injury']
+    const lowerText = text.toLowerCase()
+    const isEmergency = emergencyKeywords.some(keyword => lowerText.includes(keyword))
+    
+    return { containsProfanity, isEmergency }
+  }
+
   const handleDescriptionChange = (value: string) => {
     setDescription(value)
     setProfanityWarning(false)
     setError('')
+    
+    // AI Scanner placeholder logic
+    const validation = validateContent(value)
+    
+    // Emergency priority interceptor
+    if (validation.isEmergency && !priorityLocked) {
+      setDetectedPriority('urgent')
+      setPriorityLocked(true)
+      toast.warning('Emergency keywords detected. Priority set to URGENT and locked.', {
+        duration: 5000,
+      })
+    }
+    
+    // Profanity detection
+    if (validation.containsProfanity) {
+      setProfanityWarning(true)
+    }
+  }
+
+  const handleSubjectChange = (value: string) => {
+    setSubject(value)
+    setProfanityWarning(false)
+    setError('')
+    
+    // Check subject for profanity
+    if (checkProfanity(value)) {
+      setProfanityWarning(true)
+    }
+  }
+
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (e.target.files) {
+      const newFiles = Array.from(e.target.files)
+      setSelectedFiles(prev => [...prev, ...newFiles])
+      toast.success(`${newFiles.length} file(s) selected`)
+    }
+  }
+
+  const removeFile = (index: number) => {
+    setSelectedFiles(prev => prev.filter((_, i) => i !== index))
   }
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -100,6 +155,7 @@ export function FeedbackForm({ onNavigate }: FeedbackFormProps) {
       })
 
       setSuccess(true)
+      toast.success('Feedback submitted successfully!')
       
       // Reset form
       setTimeout(() => {
@@ -109,6 +165,9 @@ export function FeedbackForm({ onNavigate }: FeedbackFormProps) {
         setIsAnonymous(false)
         setDepartment('')
         setSuccess(false)
+        setDetectedPriority('medium')
+        setPriorityLocked(false)
+        setSelectedFiles([])
         
         if (isAuthenticated) {
           onNavigate('dashboard')
@@ -116,6 +175,7 @@ export function FeedbackForm({ onNavigate }: FeedbackFormProps) {
       }, 3000)
     } catch (err: any) {
       setError(err.message || 'Failed to submit feedback')
+      toast.error(err.message || 'Failed to submit feedback')
     } finally {
       setLoading(false)
     }
@@ -209,7 +269,7 @@ export function FeedbackForm({ onNavigate }: FeedbackFormProps) {
                   id="subject"
                   placeholder="Brief summary of your feedback"
                   value={subject}
-                  onChange={(e) => setSubject(e.target.value)}
+                  onChange={(e) => handleSubjectChange(e.target.value)}
                   required
                 />
               </div>
@@ -228,6 +288,65 @@ export function FeedbackForm({ onNavigate }: FeedbackFormProps) {
                 <p className="text-sm text-muted-foreground">
                   {description.length} characters
                 </p>
+              </div>
+
+              {/* Priority Indicator (Emergency Detection) */}
+              {priorityLocked && (
+                <Alert className="bg-red-50 dark:bg-red-900/20 border-red-200 dark:border-red-800">
+                  <Lock className="h-4 w-4 text-red-600" />
+                  <AlertDescription className="text-red-900 dark:text-red-100">
+                    <strong>Emergency detected:</strong> Priority automatically set to URGENT. This cannot be changed due to the nature of your feedback.
+                  </AlertDescription>
+                </Alert>
+              )}
+
+              {/* File Attachment UI */}
+              <div className="space-y-2">
+                <Label>Attachments (Optional)</Label>
+                <div className="border-2 border-dashed border-gray-300 dark:border-gray-700 rounded-lg p-6 hover:border-[#001F54] dark:hover:border-blue-500 transition-colors">
+                  <div className="text-center">
+                    <Upload className="w-12 h-12 mx-auto text-gray-400 mb-3" />
+                    <div className="space-y-2">
+                      <p className="text-sm text-gray-600 dark:text-gray-400">
+                        <label htmlFor="file-upload" className="text-[#001F54] hover:underline cursor-pointer font-medium">
+                          Click to upload
+                        </label>
+                        {' '}or drag and drop
+                      </p>
+                      <p className="text-xs text-gray-500 dark:text-gray-500">
+                        PNG, JPG, PDF up to 10MB
+                      </p>
+                    </div>
+                    <input
+                      id="file-upload"
+                      type="file"
+                      multiple
+                      onChange={handleFileChange}
+                      className="hidden"
+                      accept="image/*,.pdf"
+                    />
+                  </div>
+                </div>
+                
+                {/* Selected Files Display */}
+                {selectedFiles.length > 0 && (
+                  <div className="space-y-2">
+                    {selectedFiles.map((file, index) => (
+                      <div key={index} className="flex items-center justify-between p-2 bg-gray-100 dark:bg-gray-800 rounded-lg">
+                        <span className="text-sm truncate flex-1">{file.name}</span>
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => removeFile(index)}
+                          className="ml-2"
+                        >
+                          <X className="w-4 h-4" />
+                        </Button>
+                      </div>
+                    ))}
+                  </div>
+                )}
               </div>
 
               {/* Anonymous Toggle */}
@@ -252,7 +371,7 @@ export function FeedbackForm({ onNavigate }: FeedbackFormProps) {
                 <Alert variant="destructive">
                   <AlertTriangle className="h-4 w-4" />
                   <AlertDescription>
-                    Your feedback contains inappropriate language and cannot be submitted. Please revise your message.
+                    Profanity detected. Please rewrite your feedback to comply with PAU standards.
                   </AlertDescription>
                 </Alert>
               )}
@@ -266,7 +385,7 @@ export function FeedbackForm({ onNavigate }: FeedbackFormProps) {
 
               {/* Success Message */}
               {success && (
-                <Alert className="bg-green-50 text-green-900 border-green-200">
+                <Alert className="bg-green-50 text-green-900 border-green-200 dark:bg-green-900/20 dark:text-green-100 dark:border-green-800">
                   <CheckCircle2 className="h-4 w-4" />
                   <AlertDescription>
                     Feedback submitted successfully! Thank you for your contribution.
@@ -278,7 +397,7 @@ export function FeedbackForm({ onNavigate }: FeedbackFormProps) {
               <Button
                 type="submit"
                 className="w-full bg-[#001F54] hover:bg-blue-900"
-                disabled={loading || success}
+                disabled={loading || success || profanityWarning}
               >
                 {loading ? (
                   <>
